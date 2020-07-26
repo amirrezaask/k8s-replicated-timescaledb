@@ -9,12 +9,12 @@ objects:
     metadata:
       labels:
         app: ${SERVICE_NAME}
-      name: "${SERVICE_NAME}-postgres"
+      name: "${SERVICE_NAME}-timescaledb"
     spec:
       replicas: 1
       selector:
-        app: ${SERVICE_NAME}-postgres
-        deploymentconfig: "${SERVICE_NAME}-postgres"
+        app: ${SERVICE_NAME}-timescaledb
+        deploymentconfig: "${SERVICE_NAME}-timescaledb"
       strategy:
         rollingParams:
           intervalSeconds: 1
@@ -28,8 +28,8 @@ objects:
             prometheus.io/scrape: "true"
             prometheus.io/path: "/metrics"
           labels:
-            app: ${SERVICE_NAME}-postgres
-            deploymentconfig: "${SERVICE_NAME}-postgres"
+            app: ${SERVICE_NAME}-timescaledb
+            deploymentconfig: "${SERVICE_NAME}-timescaledb"
         type: Rolling
         spec:
           replicas: 1
@@ -42,34 +42,34 @@ objects:
                   valueFrom:
                     secretKeyRef:
                       key: database-user
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 - name: POSTGRES_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-password
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 - name: POSTGRES_DB
                   valueFrom:
                     secretKeyRef:
                       key: database-name
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 
                 - name: POSTGRESQL_REPLICATION_USER
                   valueFrom:
                     secretKeyRef:
                       key: database-replica-user
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
               
                 - name: POSTGRESQL_REPLICATION_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-replica-password
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 - name: POSTGRES_POSTGRES_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-su-password
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 - name: POSTGRESQL_REPLICATION_MODE
                   value: "slave"
                 - name: POSTGRESQL_MASTER_HOST
@@ -98,13 +98,13 @@ objects:
                 periodSeconds: 10
               volumeMounts:
                 - mountPath: /var/lib/postgresql/data
-                  name: ${SERVICE_NAME}-postgres-slave
+                  name: ${SERVICE_NAME}-timescaledb-slave
                 - mountPath: /docker-entrypoint-preinitdb.d
-                  name: ${SERVICE_NAME}-postgres-slave
+                  name: ${SERVICE_NAME}-timescaledb-slave
                 - mountPath: /docker-entrypoint-initdb.d
-                  name: ${SERVICE_NAME}-postgres-slave
+                  name: ${SERVICE_NAME}-timescaledb-slave
                 - mountPath: /bitnami/postgresql
-                  name: ${SERVICE_NAME}-postgres-slave
+                  name: ${SERVICE_NAME}-timescaledb-slave
 
 
             - name: "postgres-master"
@@ -117,34 +117,34 @@ objects:
                   valueFrom:
                     secretKeyRef:
                       key: database-user
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 - name: POSTGRES_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-password
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 - name: POSTGRES_DB
                   valueFrom:
                     secretKeyRef:
                       key: database-name
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 
                 - name: POSTGRESQL_REPLICATION_USER
                   valueFrom:
                     secretKeyRef:
                       key: database-replica-user
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
               
                 - name: POSTGRESQL_REPLICATION_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-replica-password
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 - name: POSTGRES_POSTGRES_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-su-password
-                      name: "${SERVICE_NAME}-postgres"
+                      name: "${SERVICE_NAME}-timescaledb"
                 
               ports:
                 - containerPort: 5432
@@ -166,21 +166,21 @@ objects:
                 periodSeconds: 10
               volumeMounts:
                 - mountPath: /var/lib/postgresql/data
-                  name: ${SERVICE_NAME}-postgres-master
+                  name: ${SERVICE_NAME}-timescaledb-master
                 - mountPath: /docker-entrypoint-preinitdb.d
-                  name: ${SERVICE_NAME}-postgres-master
+                  name: ${SERVICE_NAME}-timescaledb-master
                 - mountPath: /docker-entrypoint-initdb.d
-                  name: ${SERVICE_NAME}-postgres-master
+                  name: ${SERVICE_NAME}-timescaledb-master
                 - mountPath: /bitnami/postgresql
-                  name: ${SERVICE_NAME}-postgres-master
+                  name: ${SERVICE_NAME}-timescaledb-master
 
           volumes:
-            - name: ${SERVICE_NAME}-postgres-master
+            - name: ${SERVICE_NAME}-timescaledb-master
               persistentVolumeClaim:
-                claimName: ${SERVICE_NAME}-postgres-master
-            - name: ${SERVICE_NAME}-postgres-slave
+                claimName: ${SERVICE_NAME}-timescaledb-master
+            - name: ${SERVICE_NAME}-timescaledb-slave
               persistentVolumeClaim:
-                claimName: ${SERVICE_NAME}-postgres-slave
+                claimName: ${SERVICE_NAME}-timescaledb-slave
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         securityContext: {}
@@ -190,8 +190,8 @@ objects:
     kind: Service
     metadata:
       labels:
-        app: ${SERVICE_NAME}-postgres
-      name: "${SERVICE_NAME}-postgres"
+        app: ${SERVICE_NAME}-timescaledb
+      name: "${SERVICE_NAME}-timescaledb"
     spec:
       ports:
         - name: "${SERVICE_NAME}-tcp"
@@ -199,7 +199,7 @@ objects:
           protocol: TCP
           targetPort: 5432
       selector:
-        app: ${SERVICE_NAME}-postgres
+        app: ${SERVICE_NAME}-timescaledb
       sessionAffinity: None
       type: ClusterIP
 
@@ -209,8 +209,8 @@ objects:
     kind: PersistentVolumeClaim
     metadata:
       labels:
-        app: ${SERVICE_NAME}-postgres
-      name: "${SERVICE_NAME}-postgres-master"
+        app: ${SERVICE_NAME}-timescaledb
+      name: "${SERVICE_NAME}-timescaledb-master"
     spec:
       accessModes:
         - ReadWriteOnce
@@ -222,8 +222,8 @@ objects:
     kind: PersistentVolumeClaim
     metadata:
       labels:
-        app: ${SERVICE_NAME}-postgres
-      name: "${SERVICE_NAME}-postgres-slave"
+        app: ${SERVICE_NAME}-timescaledb
+      name: "${SERVICE_NAME}-timescaledb-slave"
     spec:
       accessModes:
         - ReadWriteOnce
@@ -235,8 +235,8 @@ objects:
     kind: Secret
     metadata:
       labels:
-        app: ${SERVICE_NAME}-postgres
-      name: "${SERVICE_NAME}-postgres"
+        app: ${SERVICE_NAME}-timescaledb
+      name: "${SERVICE_NAME}-timescaledb"
     stringData:
       database-name: "${POSTGRESQL_DATABASE}"
       database-password: "${POSTGRESQL_PASSWORD}"
