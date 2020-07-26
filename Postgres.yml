@@ -1,0 +1,312 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: ${APP_NAME}
+
+objects:
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      labels:
+        app: ${SERVICE_NAME}
+      name: "${SERVICE_NAME}-postgres"
+    spec:
+      replicas: 1
+      selector:
+        app: ${SERVICE_NAME}-postgres
+        deploymentconfig: "${SERVICE_NAME}-postgres"
+      strategy:
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 1
+          maxUnavailable: 0
+          timeoutSeconds: 600
+          updatePeriodSeconds: 10
+      template:
+        metadata:
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/path: "/metrics"
+          labels:
+            app: ${SERVICE_NAME}-postgres
+            deploymentconfig: "${SERVICE_NAME}-postgres"
+        type: Rolling
+        spec:
+          replicas: 1
+          containers:
+            - name: "postgres-slave"
+              image: "timescale/timescaledb:latest-pg11-bitnami"
+              imagePullPolicy: Always
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-user
+                      name: "${SERVICE_NAME}-postgres"
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-password
+                      name: "${SERVICE_NAME}-postgres"
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-name
+                      name: "${SERVICE_NAME}-postgres"
+                
+                - name: POSTGRESQL_REPLICATION_USER
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-replica-user
+                      name: "${SERVICE_NAME}-postgres"
+              
+                - name: POSTGRESQL_REPLICATION_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-replica-password
+                      name: "${SERVICE_NAME}-postgres"
+                - name: POSTGRES_POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-su-password
+                      name: "${SERVICE_NAME}-postgres"
+                - name: POSTGRESQL_REPLICATION_MODE
+                  value: "slave"
+                - name: POSTGRESQL_MASTER_HOST
+                  value: "0.0.0.0"
+                - name: POSTGRESQL_MASTER_PORT_NUMBER
+                  value: "5432"
+                - name: POSTGRESQL_PORT_NUMBER
+                  value: "5433"
+              ports:
+                - containerPort: 5433
+                  protocol: TCP
+              resources:
+                limits:
+                  memory: 2000Mi
+                requests:
+                  memory: 1500Mi
+              livenessProbe:
+                tcpSocket:
+                  port: 5433
+                initialDelaySeconds: 15
+                periodSeconds: 20
+              readinessProbe:
+                tcpSocket:
+                  port: 5433
+                initialDelaySeconds: 5
+                periodSeconds: 10
+              volumeMounts:
+                - mountPath: /var/lib/postgresql/data
+                  name: ${SERVICE_NAME}-postgres-slave
+                - mountPath: /docker-entrypoint-preinitdb.d
+                  name: ${SERVICE_NAME}-postgres-slave
+                - mountPath: /docker-entrypoint-initdb.d
+                  name: ${SERVICE_NAME}-postgres-slave
+                - mountPath: /bitnami/postgresql
+                  name: ${SERVICE_NAME}-postgres-slave
+
+
+            - name: "postgres-master"
+              image: "timescale/timescaledb:latest-pg11-bitnami"
+              imagePullPolicy: Always
+              env:
+                - name: POSTGRESQL_REPLICATION_MODE
+                  value: "master"
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-user
+                      name: "${SERVICE_NAME}-postgres"
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-password
+                      name: "${SERVICE_NAME}-postgres"
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-name
+                      name: "${SERVICE_NAME}-postgres"
+                
+                - name: POSTGRESQL_REPLICATION_USER
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-replica-user
+                      name: "${SERVICE_NAME}-postgres"
+              
+                - name: POSTGRESQL_REPLICATION_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-replica-password
+                      name: "${SERVICE_NAME}-postgres"
+                - name: POSTGRES_POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-su-password
+                      name: "${SERVICE_NAME}-postgres"
+                
+              ports:
+                - containerPort: 5432
+                  protocol: TCP
+              resources:
+                limits:
+                  memory: 2000Mi
+                requests:
+                  memory: 1500Mi
+              livenessProbe:
+                tcpSocket:
+                  port: 5432
+                initialDelaySeconds: 15
+                periodSeconds: 20
+              readinessProbe:
+                tcpSocket:
+                  port: 5432
+                initialDelaySeconds: 5
+                periodSeconds: 10
+              volumeMounts:
+                - mountPath: /var/lib/postgresql/data
+                  name: ${SERVICE_NAME}-postgres-master
+                - mountPath: /docker-entrypoint-preinitdb.d
+                  name: ${SERVICE_NAME}-postgres-master
+                - mountPath: /docker-entrypoint-initdb.d
+                  name: ${SERVICE_NAME}-postgres-master
+                - mountPath: /bitnami/postgresql
+                  name: ${SERVICE_NAME}-postgres-master
+
+          volumes:
+            - name: ${SERVICE_NAME}-postgres-master
+              persistentVolumeClaim:
+                claimName: ${SERVICE_NAME}-postgres-master
+            - name: ${SERVICE_NAME}-postgres-slave
+              persistentVolumeClaim:
+                claimName: ${SERVICE_NAME}-postgres-slave
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        triggers: []
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      labels:
+        app: ${SERVICE_NAME}-postgres
+      name: "${SERVICE_NAME}-postgres"
+    spec:
+      ports:
+        - name: "${SERVICE_NAME}-tcp"
+          port: 5432
+          protocol: TCP
+          targetPort: 5432
+      selector:
+        app: ${SERVICE_NAME}-postgres
+      sessionAffinity: None
+      type: ClusterIP
+
+
+
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      labels:
+        app: ${SERVICE_NAME}-postgres
+      name: "${SERVICE_NAME}-postgres-master"
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 3Gi
+
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      labels:
+        app: ${SERVICE_NAME}-postgres
+      name: "${SERVICE_NAME}-postgres-slave"
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 3Gi
+
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      labels:
+        app: ${SERVICE_NAME}-postgres
+      name: "${SERVICE_NAME}-postgres"
+    stringData:
+      database-name: "${POSTGRESQL_DATABASE}"
+      database-password: "${POSTGRESQL_PASSWORD}"
+      database-user: "${POSTGRESQL_USER}"
+      database-replica-user: "${POSTGRESQL_REPLICA_USER}"
+      database-replica-password: "${POSTGRESQL_REPLICA_PASS}"
+      database-su-password: "${POSTGRES_SU_PASS}"
+
+parameters:
+  - name: SERVICE_NAME
+    displayName: Service Name
+    required: true
+    value: "tarazou"
+
+  - name: CI_COMMIT_REF_NAME
+    displayName: Commit Name
+    required: true
+    value: "latest"
+      
+  - name: SERVICE_IMAGE_TAG
+    displayName: Deployment branch
+    required: true
+    value: "master"
+
+  - name: CREATED_BY
+    description: "name of deployer"
+    displayName: "created by"
+    required: true
+    value: "amirreza"
+
+  - name: VOLUME_CAPACITY
+    displayName: Volume Capacity
+    description: Volume space available for data, e.g. 2Gi, 5Gi.
+    required: true
+    value: 19Gi
+
+  - name: POSTGRESQL_USER
+    description: Username for PostgreSQL user that will be used for accessing the database.
+    displayName: PostgreSQL Connection Username
+    required: true
+    value: "postgres"
+
+  - name: POSTGRESQL_PASSWORD
+    description: Password for the PostgreSQL connection user.
+    displayName: PostgreSQL Connection Password
+    required: true
+    value: "tarazou"
+
+  - name: POSTGRESQL_DATABASE
+    description: Name of the PostgreSQL database accessed.
+    displayName: PostgreSQL Database Name
+    required: true
+    value: "tarazou"
+
+  - name: POSTGRESQL_REPLICA_USER
+    description: Name of the PostgreSQL Replica user
+    displayName: PostgreSQL Replica User
+    required: true
+    value: "repl"
+
+  - name: POSTGRESQL_REPLICA_PASS
+    description: PostgreSQL replica password
+    displayName: PostgreSQL Replica Password
+    required: true
+    value: "ica"
+
+  - name: POSTGRES_SU_PASS
+    description: PostgreSQL Superuser password
+    displayName: PostgreSQL Superuser Password
+    required: true
+    value: "superuser"
+    
+
