@@ -1,2 +1,2 @@
-# k8s-templates
-personal k8s templates
+# Replicated TimescaleDB
+Replicated TimescaleDB kubernetes objects. compatible with OKD.

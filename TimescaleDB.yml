@@ -34,41 +34,31 @@ objects:
         spec:
           replicas: 1
           containers:
-            - name: "postgres-slave"
-              image: "timescale/timescaledb:latest-pg11-bitnami"
+            - name: "slave"
+              image: "timescale/timescaledb:1.5.1-pg11-bitnami"
               imagePullPolicy: Always
               env:
-                - name: POSTGRES_USER
-                  valueFrom:
-                    secretKeyRef:
-                      key: database-user
-                      name: "${SERVICE_NAME}-timescaledb"
-                - name: POSTGRES_PASSWORD
+                - name: POSTGRESQL_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-password
                       name: "${SERVICE_NAME}-timescaledb"
-                - name: POSTGRES_DB
-                  valueFrom:
-                    secretKeyRef:
-                      key: database-name
-                      name: "${SERVICE_NAME}-timescaledb"
-                
+
                 - name: POSTGRESQL_REPLICATION_USER
                   valueFrom:
                     secretKeyRef:
                       key: database-replica-user
                       name: "${SERVICE_NAME}-timescaledb"
-              
+
                 - name: POSTGRESQL_REPLICATION_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-replica-password
                       name: "${SERVICE_NAME}-timescaledb"
-                - name: POSTGRES_POSTGRES_PASSWORD
+                - name: POSTGRES_DB
                   valueFrom:
                     secretKeyRef:
-                      key: database-su-password
+                      key: database-name
                       name: "${SERVICE_NAME}-timescaledb"
                 - name: POSTGRESQL_REPLICATION_MODE
                   value: "slave"
@@ -97,8 +87,6 @@ objects:
                 initialDelaySeconds: 5
                 periodSeconds: 10
               volumeMounts:
-                - mountPath: /var/lib/postgresql/data
-                  name: ${SERVICE_NAME}-timescaledb-slave
                 - mountPath: /docker-entrypoint-preinitdb.d
                   name: ${SERVICE_NAME}-timescaledb-slave
                 - mountPath: /docker-entrypoint-initdb.d
@@ -106,46 +94,34 @@ objects:
                 - mountPath: /bitnami/postgresql
                   name: ${SERVICE_NAME}-timescaledb-slave
 
-
-            - name: "postgres-master"
-              image: "timescale/timescaledb:latest-pg11-bitnami"
+            - name: "master"
+              image: "timescale/timescaledb:1.5.1-pg11-bitnami"
               imagePullPolicy: Always
               env:
                 - name: POSTGRESQL_REPLICATION_MODE
                   value: "master"
-                - name: POSTGRES_USER
-                  valueFrom:
-                    secretKeyRef:
-                      key: database-user
-                      name: "${SERVICE_NAME}-timescaledb"
-                - name: POSTGRES_PASSWORD
+
+                - name: POSTGRESQL_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-password
+                      name: "${SERVICE_NAME}-timescaledb"
+                      
+                - name: POSTGRESQL_REPLICATION_USER
+                  valueFrom:
+                    secretKeyRef:
+                      key: database-replica-user
                       name: "${SERVICE_NAME}-timescaledb"
                 - name: POSTGRES_DB
                   valueFrom:
                     secretKeyRef:
                       key: database-name
                       name: "${SERVICE_NAME}-timescaledb"
-                
-                - name: POSTGRESQL_REPLICATION_USER
-                  valueFrom:
-                    secretKeyRef:
-                      key: database-replica-user
-                      name: "${SERVICE_NAME}-timescaledb"
-              
                 - name: POSTGRESQL_REPLICATION_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       key: database-replica-password
                       name: "${SERVICE_NAME}-timescaledb"
-                - name: POSTGRES_POSTGRES_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      key: database-su-password
-                      name: "${SERVICE_NAME}-timescaledb"
-                
               ports:
                 - containerPort: 5432
                   protocol: TCP
@@ -165,8 +141,6 @@ objects:
                 initialDelaySeconds: 5
                 periodSeconds: 10
               volumeMounts:
-                - mountPath: /var/lib/postgresql/data
-                  name: ${SERVICE_NAME}-timescaledb-master
                 - mountPath: /docker-entrypoint-preinitdb.d
                   name: ${SERVICE_NAME}-timescaledb-master
                 - mountPath: /docker-entrypoint-initdb.d
@@ -203,8 +177,6 @@ objects:
       sessionAffinity: None
       type: ClusterIP
 
-
-
   - apiVersion: v1
     kind: PersistentVolumeClaim
     metadata:
@@ -216,7 +188,7 @@ objects:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 3Gi
+          storage: "${VOLUME_CAPACITY}"
 
   - apiVersion: v1
     kind: PersistentVolumeClaim
@@ -229,7 +201,7 @@ objects:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 3Gi
+          storage: "${VOLUME_CAPACITY}"
 
   - apiVersion: v1
     kind: Secret
@@ -249,7 +221,7 @@ parameters:
   - name: SERVICE_NAME
     displayName: Service Name
     required: true
-    value: "tarazou"
+    value: "app"
 
   - name: CI_COMMIT_REF_NAME
     displayName: Commit Name
@@ -271,7 +243,7 @@ parameters:
     displayName: Volume Capacity
     description: Volume space available for data, e.g. 2Gi, 5Gi.
     required: true
-    value: 19Gi
+    value: 9.5Gi
 
   - name: POSTGRESQL_USER
     description: Username for PostgreSQL user that will be used for accessing the database.
@@ -283,13 +255,13 @@ parameters:
     description: Password for the PostgreSQL connection user.
     displayName: PostgreSQL Connection Password
     required: true
-    value: "tarazou"
+    value: "app"
 
   - name: POSTGRESQL_DATABASE
     description: Name of the PostgreSQL database accessed.
     displayName: PostgreSQL Database Name
     required: true
-    value: "tarazou"
+    value: "app"
 
   - name: POSTGRESQL_REPLICA_USER
     description: Name of the PostgreSQL Replica user
